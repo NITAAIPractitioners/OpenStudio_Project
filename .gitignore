@@ -1,0 +1,44 @@
+# Simulation Outputs
+outputs*/
+reports/
+generated_files/
+hvac_results/
+
+# OpenStudio/EnergyPlus Temporary Files
+*.sql
+*.htm
+*.csv
+*.log
+*.err
+*.wrn
+*.rdd
+*.mdd
+*.shd
+*.eio
+*.audit
+*.bnd
+*.dxf
+*.mtd
+*.cfg
+*.exp
+*.idf
+*.mtr
+*.rdt
+*.sln
+
+# Python Bytecode and Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+.vscode/
+
+# Dataset Files (Already in Audit Trail or Large)
+KETI/
+SDH_Level4_Publication_Ready/
+outputs_test2_split/
+outputs_test2/
+outputs_unified/
+outputs_final/
+results_bugfix/
+results_original/
