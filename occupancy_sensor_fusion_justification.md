@@ -144,7 +144,7 @@ To achieve the finalized RMSE results, the model underwent a multi-stage sensiti
 ### Performance Evolution (ASHRAE vs. Optimized Fused)
 The following chart, generated via [plot_sensitivity.py](file://./aswani_model/validation/plot_sensitivity.py), illustrates the sharp drop in simulation error as we transition from standard block schedules to the sensor-fused index.
 
-![Simulation Sensitivity Performance](file://./aswani_model/validation/outputs/sensitivity_analysis.png)
+![Simulation Sensitivity Performance](./aswani_model/validation/outputs/sensitivity_analysis.png)
 
 *   **Phase 1: The Sensor-Fusion Drop (B1a -> B1b):** Simply replacing ASHRAE block schedules with the Fused Occupancy Index instantly eliminated **43% of the CO₂ error** and **34% of the Temperature error**. This proves that occupancy is the dominant disturbance in SDH.
 *   **Phase 2: Tuning & Refinement (B2 -> B4):** Incremental tuning of equipment density ($25\text{W/m}^2$) and ventilation rates ($0.015\text{ m}^3\text{/s/person}$) stabilized the thermal oscillation, reaching the **Golden Model (B4)**.
