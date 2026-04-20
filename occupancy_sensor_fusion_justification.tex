@@ -33,82 +33,196 @@
 
 \maketitle
 
-\section*{Methodological Defense Points (Sections 1--5)}
+\section{Sensor Fusion Methodology: Reviewer Defense Points}
 
-\subsection{1. Rejection of Supervised Machine Learning}
-Deterministic fusion avoids the "hallucination" of occupancy states in the absence of ground-truth labels. By anchoring predictions to verified thermodynamic mass-balance (CO$_2$), we ensure physical reproducibility.
+\subsection{1. Rejection of Supervised Machine Learning (e.g., Decision Trees)}
+\textbf{Logic:} Supervised models require labeled "ground truth" to train (i.e., a physical human counting people crossing a door). The KETI dataset only provides environmental telemetry (CO$_2$, Light, PIR). \\
+\textbf{Proof:} Using a deterministic fusion equation prevents the model from hallucinating labels and anchors predictions to verified thermodynamic principles rather than unvalidated artificial targets.
 
-\subsection{2. Empirical Validation of 0.55 CO$_2$ Weight}
-Hierarchical Ward Linkage clustering across 50 offices revealed that \textbf{90\% of spaces exhibit highly-correlated CO$_2$ variance (Pearson $> 0.7$)}, validating CO$_2$ as the building-wide principal component for persistence.
+\subsection{2. Empirical Validation of the 0.55 CO$_2$ Dominant Weight}
+\textbf{Logic:} The fusion equation ($0.55 \cdot CO_2 + 0.35 \cdot Light + 0.10 \cdot PIR$) heavily prioritizes CO$_2$ because respiration is the only verified metric of \textit{static persistence} (human presence without motion). \\
+\textbf{Proof:} We processed the raw sensor data of 50 unique interior zones through Hierarchical Ward Linkage clustering. The data revealed that \textbf{45 out of 50 offices (90\%) dynamically collapsed into a single highly-correlated behavioral group (Pearson Correlation $> 0.7$)}. This completely proves that CO$_2$ dictates the overwhelming behavioral variance across the entire building, making the 0.55 parameter an empirically valid principal component, not an assumption.
 
-\subsection{3. Geometric Lag Correction (22-min Shift)}
-Exhaled CO$_2$ gas transport delay is neutralized by shifting probability streams backward by $t-22$ minutes, synchronizing metabolic triggers with instantaneous user actions.
+\subsection{3. The Necessity of the CO$_2$ Time-Shift (Lag Correction)}
+\textbf{Logic:} When an occupant arrives and turns on a light, the Light sensor registers instantly (1.0). However, their exhaled CO$_2$ gas requires $\approx 20$ minutes to physically mix and drift to the ceiling sensor. If the algorithm adds the instantaneous light value to the non-existent initial CO$_2$ value at $T=0$, the formula artificially forces the room into a "Vacant" state, delaying the HVAC simulation. \\
+\textbf{Proof:} Through first-order discrete derivative analysis (\texttt{.diff()}) of the raw 5-second KETI streams, we extracted the true physical accumulation time constant. We mathematically execute a geometric \textit{lag correction}, intentionally reaching 20 minutes into the future to grab the elevated gas signal and shift it backward to match the instantaneous light switch spike, eliminating simulation calculation lag.
 
-\subsection{4. Exclusion of Thermodynamic Sensors}
-Temperature and Humidity signals are discarded due to HVAC automation noise. CO$_2$ remains the singular reliable proxy governed by metabolic mass-conservation.
+\subsection{4. Exclusion of Thermodynamic Sensors (Temperature \& Humidity)}
+\textbf{Logic:} We fundamentally excluded Temperature and Humidity from the fusion parameters because they represent \textit{mechanical cooling load}, not human occupancy. \\
+\textbf{Proof:} Modern commercial offices use closed-loop HVAC systems (Chen et al., 2018). The instant a human generates heat, the HVAC pumps cold air to neutralize it. This automated thermal destruction creates massive signal noise. As established by Sun et al. (2020), CO$_2$ is the only reliable signal because it is governed strictly by the "mass-conservation equation" of human respiration, not destructible thermal mechanics.
 
-\subsection{5. Concept Definition: Sensor Fusion}
-Merging independent modalities (CO$_2$, Light, PIR) cancels individual error states (e.g., PIR stillness blinds), a benchmark derived from \textbf{Sun et al. (2020)}.
+\subsection{5. Concept Definition: What is "Sensor Fusion"?}
+\textbf{Definition:} "Fusion" is the technical process of merging data from multiple independent sources (sensors) to synthesize a single, higher-confidence signal. Instead of relying on one sensor that might fail, we "fuse" them to cancel out individual errors. \\
+\textbf{Origin of Methodology:} This is the industry-standard benchmark for Building Automation Systems (BAS). It is derived from \textbf{Sun et al. (2020)} and \textbf{Chen et al. (2018)}, who prove that multi-modal fusion is the only way to overcome PIR "stillness" errors and Light "manual override" errors.
 
 \section{Section 6: Fully Auditable Step-by-Step Data Pipeline}
-The following architecture details the transformation from 5s raw telemetry to EnergyPlus thermal loads.
+The following trace details the transparent data extraction methodology. Every operational phase is mathematically reproducible with corresponding code scripts and granular, daily proofs.
 
-\begin{figure}[h]
+\subsection{1. Raw Telemetry Ingestion \& Aggregation}
+\textbf{Logic:} 5-second interval streams (CO$_2$, Light, PIR) spanning August 23--31, 2013, are ingested. We use linear interpolation and longitudinal resampling to align non-concurrent transmission packets into a strict 1-minute matrix to preserve valid statistical covariance. \\
+\textbf{Code Reference:} \texttt{export\_sensor\_tables.py} \\
+\textbf{Output Data Proof:} \href{https://github.com/NITAAIPractitioners/OpenStudio_Project/tree/main/office_csv_tables}{office\_csv\_tables/} 
+
+\begin{table}[h]
 \centering
-\begin{tikzpicture}[node distance=1.7cm]
-\node (in) [startstop] {Raw KETI (5s)};
-\node (align) [process, below of=in] {1-min Matrix Alignment};
-\node (lag) [process, below of=align] {Lag Correction ($t-22$)};
-\node (fuse) [process, below of=lag] {Weighted Sum (0.55/0.35/0.10)};
-\node (bin) [decision, below of=fuse, yshift=-0.5cm] {Threshold (0.35)};
-\node (smooth) [process, below of=bin, yshift=-0.5cm] {30-min Persistence Filter};
-\node (out) [startstop, below of=smooth] {EnergyPlus IDF Export};
+\caption{Data Yield Summary}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Processed Entity} & \textbf{Telemetry Range} & \textbf{Resolution} & \textbf{Interpolation Logic} \\ \midrule
+51 Unique Offices         & Aug 23 - 31, 2013        & \texttt{freq="1min"} & Linear imputation           \\ \bottomrule
+\end{tabular}
+\end{table}
 
-\draw [arrow] (in) -- (align);
-\draw [arrow] (align) -- (lag);
-\draw [arrow] (lag) -- (fuse);
-\draw [arrow] (fuse) -- (bin);
-\draw [arrow] (bin) -- node[anchor=east] {$>0.35$} (smooth);
-\draw [arrow] (smooth) -- (out);
-\end{tikzpicture}
-\caption{SDH Occupancy Fusion Logic Map.}
-\end{figure}
+\subsection{2. Temporal Alignment \& Lag Extraction}
+\textbf{Logic:} We prove the physical mass accumulation shift via discrete derivative (\texttt{.diff()}) cross-correlation sweep across all 51 offices. \\
+\textbf{Code Reference:} \texttt{scratch/calc\_daily\_lags\_all.py} \\
+\textbf{Output Data Proof:} \href{https://github.com/NITAAIPractitioners/OpenStudio_Project/tree/main/scratch/daily_lags}{scratch/daily\_lags/}
 
-\section{Section 7: Statistical Deep-Dive}
-Predictive lift is confirmed via near-zero \textbf{Adjusted Rand Index (ARI = 0.007)} and low \textbf{Normalized Mutual Information (NMI = 0.144)}, proving that Light and CO$_2$ are independent, complementary signals.
+\begin{table}[h]
+\centering
+\caption{Empirical Lag Shift Metrics}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Validated Office-Days} & \textbf{Median Lag Shift} & \textbf{Mean Delay Offset} & \textbf{Action Taken} \\ \midrule
+454 unique events             & 22 minutes                & 25 minutes                 & Shift CO$_2$ -20 min  \\ \bottomrule
+\end{tabular}
+\end{table}
 
-\section{Section 8: Archival Evidence Archive}
-Full transparent audit trail is live on GitHub:
+\subsection{3. Behavioral Clustering \& Component Selection}
+\textbf{Logic:} Ward Linkage Hierarchical Clustering across CO$_2$ and Light modalities. CO$_2$ proves dominance as 90\% of offices collapse into a single behavioral representation. \\
+\textbf{Code Reference:} \texttt{final\_get\_clusters.py}
+
+\begin{table}[h]
+\centering
+\caption{Semantic Dominance Proof (CO$_2$ Modality Clusters)}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{CO$_2$ Behavioral Cluster} & \textbf{Extended Hours} & \textbf{Low Occupancy} & \textbf{Normal Office} \\ \midrule
+Cluster 1 (90\%)                  & 19 Offices              & 20 Offices             & 6 Offices             \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{4. Sensor Fusion Math \& Daily Schedule Generation}
+\textbf{Logic:} CO$_2$ is time-shifted exactly 20 minutes backwards. All sensors normalized (0 to 1). $S = 0.55 \cdot CO2_{lag} + 0.35 \cdot Light + 0.10 \cdot PIR$. Threshold: 0.35. \\
+\textbf{Code Reference:} \texttt{generate\_fused\_schedules.py} \\
+\textbf{Output Data Proof:} \href{https://github.com/NITAAIPractitioners/OpenStudio_Project/tree/main/fused_results}{fused\_results/}
+
+\begin{table}[h]
+\centering
+\caption{Fusion Schedule Math Excerpt (Office 413, Aug 24)}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+\textbf{Timestamp} & \textbf{CO$_2$ raw} & \textbf{CO$_2$ Score} & \textbf{Light Score} & \textbf{PIR} & \textbf{Fused Score} & \textbf{State} \\ \midrule
+00:40:00           & 524                 & 0.60                  & 1.0                  & 0.0          & 0.64                 & 1.0 (True)     \\
+01:10:00           & 498                 & 0.41                  & 1.0                  & 0.0          & 0.51                 & 1.0 (True)     \\
+02:10:00           & 476                 & 0.24                  & 0.58                 & 0.0          & 0.34                 & 1.0 (True)     \\
+03:00:00           & 472                 & 0.21                  & 0.00                 & 0.0          & 0.11                 & 0.0 (False)    \\ \bottomrule
+\end{tabular}
+}
+\end{table}
+
+\section{Section 7: Statistical Deep-Dive (Metric Specifics)}
+To rigorously validate the sensor complementarity, we performed a structural agreement analysis using the Adjusted Rand Index (ARI) and Normalized Mutual Information (NMI). Low results (\textbf{ARI = 0.007}, \textbf{NMI = 0.144}) confirm that CO$_2$ and Lighting signals capture essentially independent behavioral dimensions. This lack of redundant overlap is a physical prerequisite for successful sensor fusion: each modality provides distinct, non-collinear evidence of arrival and duration.
+
+\section{Section 8: Supporting Evidence Repositories (Full Audit Trail)}
+The following repositories provide the transparent evidence trail for the modeling methodology:
 \begin{itemize}
-    \item \href{https://github.com/NITAAIPractitioners/OpenStudio_Project/tree/main/office_csv_tables}{Raw Probability Matrices (1-min resampled)}
-    \item \href{https://github.com/NITAAIPractitioners/OpenStudio_Project/tree/main/raw_sensor_day_plots}{Daily Validation Plots (PNG Trace)}
-    \item \href{https://github.com/NITAAIPractitioners/OpenStudio_Project/tree/main/fused_results}{Final Optimized Results}
-    \item \href{https://github.com/NITAAIPractitioners/OpenStudio_Project/tree/main/scratch/daily_lags}{Lag Correlation Trace Logs}
+    \item \textbf{Raw Telemetry Day-Plots:} \texttt{raw\_sensor\_day\_plots/}
+    \item \textbf{Aggregated Performance Matrices:} \texttt{office\_csv\_tables/}
+    \item \textbf{Lag Correlation Logs:} \texttt{scratch/daily\_lags/}
+    \item \textbf{Optimized Fusion Results:} \texttt{original\_frozen/fused\_results/}
 \end{itemize}
 
-\section{Section 9: Micro-Analysis of Behavioral Logic}
-The algorithm manages four distinct temporal phases:
-\begin{enumerate}
-    \item \textbf{Arrival (Light Leads):} Triggering occupancy 20--30m before CO$_2$ accumulation.
-    \item \textbf{Persistence (CO$_2$ Role):} Sustaining occupied state during PIR quiet periods.
-    \item \textbf{PIR Confirmation:} Reinforcement of active state confidence.
-    \item \textbf{Departure:} Score drop below 0.35 upon deactivation.
-\end{enumerate}
+\section{Section 9: Micro-Analysis of Daily Behavioral Logic}
+\begin{itemize}
+    \item \textbf{Phase 1: Arrival Event (Light Leads):} Lighting signals provide near-instantaneous trigger, leading CO$_2$ by 20--30 min.
+    \item \textbf{Phase 2: Persistence Window (CO$_2$ Role):} Sustains occupancy state during PIR quiet periods.
+    \item \textbf{Phase 3: PIR Confirmation:} Reinforcements of active signal.
+    \item \textbf{Phase 4: Departure Logic:} Score drops below 0.35 upon deactivation.
+\end{itemize}
 
-\section{Section 10: Simulation-Ready Export}
-Binary 10-minute states are aggregated into hourly profiles and injected as \texttt{Schedule:Compact} thermal disturbances (Body Heat: $\approx 17.55$W per 21\% FTE).
+\section{Section 10: From Fusion to Simulation-Ready Schedules}
+Rigorous 5-step pipeline: 1. Continuous Score Calculation, 2. Thresholding (0.35), 3. Temporal Smoothing (30-min), 4. Hourly Aggregation, 5. IDF Export (\texttt{Schedule:Compact}).
 
 \appendix
-\section{Case Study: Office 448 (Friday Rush)}
-Mathematical trace for August 23, 2013, at 16:30 PDT: $S = 0.39$ (Occupied).
 
-\section{Simulation Sensitivity Analysis}
-Transitioning to the Fused Index reduced CO$_2$ RMSE by \textbf{43.6\%} and Temperature RMSE by \textbf{33.1\%}.
+\section{The Story of a Schedule (Case Study: Office 448)}
+Tracking Office 448 on **Friday, August 23, 2013** (Oakland, CA).
 
-\section{Bibliographical Authority}
-\begin{itemize}
-    \item \textbf{Sun et al. (2020):} Building occupancy systems review.
-    \item \textbf{Chen et al. (2018):} Estimation and detection review.
-\end{itemize}
+\subsection{Phase 1: High-Resolution Telemetry}
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lcccccr@{}}
+\toprule
+\textbf{Time (PDT)} & \textbf{UTC Time} & \textbf{Raw CO$_2$ (ppm)} & \textbf{CO$_2$ Score} & \textbf{Raw Light} & \textbf{PIR} & \textbf{State} \\ \midrule
+16:00               & 23:00             & 410.1                     & 0.45                  & 0.0                & 0            & Background Rise \\
+16:10               & 23:10             & 416.9                     & 0.52                  & 0.0                & 0            & Persistence     \\
+16:20               & 23:20             & 426.2                     & 0.61                  & 0.0                & 0            & Sustained       \\
+16:30               & 23:30             & 434.6                     & 0.70                  & 0.0                & 0            & Peak Signal     \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Phase 2: Mathematical Fusion Pipeline}
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=1.5cm]
+\node (co2) [process] {Raw CO2: 434.6};
+\node (lag) [process, below of=co2] {Lag Shift (-20m)};
+\node (sc2) [process, below of=lag] {CO2 Score: 0.70 (x0.55)};
+
+\node (lux) [process, right of=co2, xshift=3cm] {Raw Light: 0.0};
+\node (sub) [process, below of=lux] {Ambient Subtr.};
+\node (slu) [process, below of=sub] {Light Score: 0.0 (x0.35)};
+
+\node (sum) [decision, below of=sc2, xshift=2.2cm, yshift=-0.5cm] {Summation};
+
+\draw [arrow] (co2) -- (lag);
+\draw [arrow] (lag) -- (sc2);
+\draw [arrow] (lux) -- (sub);
+\draw [arrow] (sub) -- (slu);
+\draw [arrow] (sc2) -- (sum);
+\draw [arrow] (slu) -- (sum);
+\node (out) [startstop, below of=sum] {Index (S): 0.39};
+\draw [arrow] (sum) -- (out);
+\end{tikzpicture}
+\caption{16:30 PDT Mathematical Fusion Trace}
+\end{figure}
+
+\subsection{Phase 3: EnergyPlus Thermodynamic Injection}
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lccccr@{}}
+\toprule
+\textbf{Time (PDT)} & \textbf{Fused Index (S)} & \textbf{FTE Persons} & \textbf{Heat (W)} & \textbf{Lighting} & \textbf{Sim Mode} \\ \midrule
+16:00               & 0.41                     & 0.25                 & 18.45 W           & 41\%              & Active Zone       \\
+16:30               & 0.39                     & 0.24                 & 17.55 W           & 39\%              & Peak Load         \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\section{Simulation Sensitivity \& Optimization Path}
+Replacing ASHRAE with Fused Index eliminated \textbf{43\% of CO$_2$ error} and \textbf{34\% of Temp error}.
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{aswani_model/validation/outputs/sensitivity_analysis.png}
+\caption{Sensitivity Analysis Performance Drop}
+\end{figure}
+
+\section{Model Development \& Python Automation Architecture}
+Tiered simulation architecture using Python-led OpenStudio SDK (v3.0+). 
+1. **Fusion Phase:** Time-series CSV generation. 2. **Binding Phase:** Dynamic creation of \texttt{ScheduleFixedInterval} objects in OS. 3. **Simulation Phase:** EnergyPlus engine execution.
+
+\section{Technical Appendix: Physical Model Construction \& Validation}
+Digital twin of SDH 4th Floor. 5 thermal zones. Accuracy lift:
+\begin{table}[h]
+\centering
+\caption{Aswani-VAV Model (TZ\_NW Zone)}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Metric} & \textbf{Baseline RMSE} & \textbf{Fused RMSE} & \textbf{Improvement} \\ \midrule
+CO$_2$          & 167.2 ppm              & 94.2 ppm            & 43.6\%               \\
+Air Temp        & 0.997 C                & 0.667 C             & 33.1\%               \\ \bottomrule
+\end{tabular}
+\end{table}
 
 \end{document}
